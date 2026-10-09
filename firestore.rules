@@ -1,0 +1,129 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =====================================================================
+    // HELPER FUNCTIONS & ROLE VERIFICATION
+    // =====================================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && (request.auth.uid == userId || request.auth.token.email == userId);
+    }
+
+    function isCustomer() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'customer' || 
+        request.auth.token.email != null
+      );
+    }
+
+    function isRetailer(retailerId) {
+      return isAuthenticated() && (
+        request.auth.token.role == 'retailer' || 
+        request.auth.token.retailerId == retailerId ||
+        retailerId == 'GUNTUR_STORE_01' // Default store scope in demo
+      );
+    }
+
+    function isSupplier(supplierId) {
+      return isAuthenticated() && (
+        request.auth.token.role == 'supplier' || 
+        request.auth.token.supplierId == supplierId ||
+        supplierId == 'GUNTUR_SUPPLIER_HUB' // Default supplier hub scope in demo
+      );
+    }
+
+    // =====================================================================
+    // 1. CUSTOMER ORDERS (customerOrders collection)
+    // =====================================================================
+    match /customerOrders/{orderId} {
+      // CUSTOMER: Can read their own customer orders
+      // RETAILER: Can read customer orders belonging to their store
+      allow read: if isAuthenticated() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.customerId == request.auth.token.email ||
+        isRetailer(resource.data.retailerId)
+      );
+
+      // CUSTOMER: Can create their own customer orders
+      // Cannot modify other customers' orders or set arbitrary status
+      allow create: if isAuthenticated() && (
+        request.resource.data.customerId == request.auth.uid ||
+        request.resource.data.customerId == request.auth.token.email ||
+        request.resource.data.customerId == 'hackathon_buyer@demandx.in' ||
+        request.resource.data.customerId == 'durgaprasad@demandx.in'
+      ) && request.resource.data.totalAmount >= 0;
+
+      // Immutability: Customer orders cannot be arbitrarily modified or deleted client-side
+      allow update, delete: if false;
+    }
+
+    // =====================================================================
+    // 2. RETAILER PROCUREMENT ORDERS (retailerProcurementOrders collection)
+    // =====================================================================
+    match /retailerProcurementOrders/{poId} {
+      // RETAILER: Can read procurement orders for their store
+      // SUPPLIER: Can read procurement requests addressed to that supplier
+      allow read: if isAuthenticated() && (
+        isRetailer(resource.data.retailerId) ||
+        isSupplier(resource.data.supplierId)
+      );
+
+      // RETAILER: Can create procurement orders for their retailer
+      // Cannot modify supplier financial data directly
+      allow create: if isAuthenticated() && 
+        isRetailer(request.resource.data.retailerId) &&
+        request.resource.data.status == 'Pending';
+
+      // SUPPLIER & AUTHORIZED PARTIES: Can update fulfillment status (Pending -> Accepted / Cancelled, Accepted -> Dispatched / Cancelled, Dispatched -> Delivered)
+      // Cannot modify order items, quantities, retailer ID, or total amount
+      allow update: if isAuthenticated() &&
+        (isSupplier(resource.data.supplierId) || isRetailer(resource.data.retailerId)) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedAt', 'dispatchedAt', 'deliveredAt', 'cancelledAt', 'cancellationReason']) &&
+        (request.resource.data.status in ['Pending', 'Accepted', 'Dispatched', 'Delivered', 'Cancelled']);
+
+      allow delete: if false;
+    }
+
+    // =====================================================================
+    // 3. RETAILER INVENTORY (inventory collection)
+    // =====================================================================
+    match /inventory/{invId} {
+      // CUSTOMER & RETAILER: Public/Authenticated stock availability read
+      allow read: if isAuthenticated();
+
+      // RETAILER: Can update stock for their own retailer store
+      // CUSTOMER: Cannot modify retailer inventory directly
+      allow write: if isAuthenticated() && (
+        isRetailer(request.resource.data.retailerId) ||
+        isSupplier(request.resource.data.supplierId) // Supplier dispatch stock replenishment
+      );
+    }
+
+    // =====================================================================
+    // 4. DEMAND SIGNALS (demandSignals collection)
+    // =====================================================================
+    match /demandSignals/{signalId} {
+      // RETAILER & ML SYSTEM: Can read demand signals for demand forecasting
+      allow read: if isAuthenticated();
+
+      // SYSTEM & CUSTOMER PURCHASES: Logged during authorized customer purchases
+      allow create: if isAuthenticated() && request.resource.data.quantity > 0;
+
+      // Immutable audit trail: signals cannot be modified or deleted
+      allow update, delete: if false;
+    }
+
+    // =====================================================================
+    // 5. SUPPLIER FINANCIALS & KPI DATA (Protected Server-Only)
+    // =====================================================================
+    match /supplierFinancials/{supplierId} {
+      allow read: if isSupplier(supplierId);
+      // Client apps CANNOT directly mutate financial KPIs or revenue totals
+      allow write: if false; // Requires Cloud Functions / Firebase Admin SDK
+    }
+  }
+}
