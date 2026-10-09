@@ -55,10 +55,25 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Configure CORS Middleware for Frontend React App (Vercel, Local & Custom Domains)
+# Configure CORS Middleware with explicit allowlist (FRONTEND_URL & local dev)
+cors_origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+]
+
+# Explicit production frontend origins configured via FRONTEND_URL (supports comma-separated list)
+raw_frontend_url = os.environ.get("FRONTEND_URL", "").strip()
+if raw_frontend_url:
+    for origin in raw_frontend_url.split(","):
+        cleaned = origin.strip().rstrip("/")
+        if cleaned and cleaned not in cors_origins:
+            cors_origins.append(cleaned)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https?://.*",
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
