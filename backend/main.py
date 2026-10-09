@@ -55,12 +55,14 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Configure CORS Middleware with explicit allowlist (FRONTEND_URL & local dev)
+# Configure CORS Middleware with explicit allowlist (FRONTEND_URL, Vercel & local dev)
 cors_origins = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
+    "https://demandx100.vercel.app",
+    "https://demandx.vercel.app",
 ]
 
 # Explicit production frontend origins configured via FRONTEND_URL (supports comma-separated list)
@@ -74,6 +76,7 @@ if raw_frontend_url:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
+    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

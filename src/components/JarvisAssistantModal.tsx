@@ -25,6 +25,7 @@ import {
 import {
   sendJarvisMessage,
   confirmJarvisReorderDraft,
+  API_BASE_URL,
   type JarvisChatResponse,
   type RAGCitation,
 } from '../services/api';
@@ -363,7 +364,7 @@ export const JarvisAssistantModal: React.FC<JarvisAssistantModalProps> = ({
       const fallbackItem: ChatItem = {
         id: `err-${Date.now()}`,
         sender: 'jarvis',
-        text: `Diagnostic Telemetry Notice: Unable to reach backend cluster. Please verify FastAPI service is running on port 8001 (${err.message}).`,
+        text: `Diagnostic Telemetry Notice: Unable to reach backend cluster (${err.message}). Endpoint: ${API_BASE_URL}. Please verify FastAPI service is online.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, fallbackItem]);

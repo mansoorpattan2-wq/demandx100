@@ -25,6 +25,7 @@ import {
   confirmJarvisReorderDraft,
   cancelJarvisReorderDraft,
   cancelJarvisOrder,
+  API_BASE_URL,
   type JarvisChatResponse,
   type RAGCitation,
 } from '../services/api';
@@ -423,7 +424,7 @@ export const JarvisCommandCentrePage: React.FC = () => {
       const errorMsg: CommandMessage = {
         id: `err-${Date.now()}`,
         sender: 'jarvis',
-        text: `Telemetry Notice: Failed to communicate with FastAPI backend server on port 8001 (${err.message}). Please verify the backend is running.`,
+        text: `Telemetry Notice: Failed to communicate with FastAPI backend (${err.message}). Endpoint: ${API_BASE_URL}. Please verify service availability.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMsg]);

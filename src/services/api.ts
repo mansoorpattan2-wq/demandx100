@@ -53,11 +53,37 @@ export interface HealthStatus {
   r2: number;
 }
 
-// Configurable API base URL from environment variable VITE_API_BASE_URL or fallback
-const ENV_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
-'http://127.0.0.1:8001';
-const CLEAN_BASE = ENV_URL.replace(/\/$/, '');
-export const API_BASE_URL = CLEAN_BASE.endsWith('/api') ? CLEAN_BASE : `${CLEAN_BASE}/api`;
+/**
+ * Production and Local Backend URLs:
+ * Deployed Render Backend: https://demandx100.onrender.com
+ * Local Development Backend: http://127.0.0.1:8001
+ */
+export const PROD_BACKEND_URL = 'https://demandx100.onrender.com';
+export const LOCAL_BACKEND_URL = 'http://127.0.0.1:8001';
+
+export function getBackendBaseUrl(): string {
+  const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL)?.trim();
+  const isBrowser = typeof window !== 'undefined';
+  const isLocalhost = isBrowser && (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === '0.0.0.0'
+  );
+  const isProd = (typeof import.meta !== 'undefined' && import.meta.env?.PROD) || (!isLocalhost && isBrowser);
+
+  if (envUrl) {
+    // If running in production (e.g. on Vercel), do not attempt to contact localhost / 127.0.0.1
+    if (isProd && (envUrl.includes('127.0.0.1') || envUrl.includes('localhost'))) {
+      return PROD_BACKEND_URL;
+    }
+    return envUrl;
+  }
+
+  return isProd ? PROD_BACKEND_URL : LOCAL_BACKEND_URL;
+}
+
+const RAW_BASE = getBackendBaseUrl().replace(/\/$/, '');
+export const API_BASE_URL = RAW_BASE.endsWith('/api') ? RAW_BASE : `${RAW_BASE}/api`;
 
 /**
  * Checks backend health status and loaded model metrics.

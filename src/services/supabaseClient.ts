@@ -74,13 +74,14 @@ export function subscribeToSupabaseOrders(
   };
 }
 
+import { API_BASE_URL } from './api';
+
 /**
  * Fetch database connectivity info from DemandX Backend.
  */
 export async function fetchDatabaseHealth(): Promise<any> {
-  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8001';
   try {
-    const res = await fetch(`${apiBase}/api/database/status`);
+    const res = await fetch(`${API_BASE_URL}/database/status`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {

@@ -11,6 +11,6 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: FRONTEND_URL
-        sync: false
+        value: https://demandx100.vercel.app
       - key: PYTHON_VERSION
         value: 3.11.9
